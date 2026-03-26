@@ -863,82 +863,429 @@ This makes graders easier to implement and test.
 
 ---
 
-# 13. Suggested implementation order by file
+# 13. Phased build sequence (execution order)
 
-Implementation should be phased rather than built all at once.
+Implementation must be phased, with a runnable vertical slice preserved at every stage.
 
----
+After each phase:
 
-## Phase 1: Models and config
-
-Build first:
-
-* `models/config_models.py`
-* `models/zone_models.py`
-* `models/observation_models.py`
-* `models/action_models.py`
-* `config/env_presets.py`
+1. verify the phase exit condition
+2. run relevant checks/tests
+3. commit only when checks pass
 
 ---
 
-## Phase 2: Core environment
+## Phase 0 - Foundation and docs
 
-Then:
+### Goal
 
-* `env/environment.py`
-* `env/state_engine.py`
-* `env/action_validator.py`
+Lock concept and repo structure.
 
-At this stage, step logic can be minimal.
+### Deliverables
 
----
+* README
+* docs
+* PRD/HLD
+* judging alignment
+* initialized repository
 
-## Phase 3: Simulation engines
+### Exit condition
 
-Then:
-
-* `env/transition_engine.py`
-* `env/weather_engine.py`
-* `env/sensor_model.py`
-* `env/reward_engine.py`
+Everyone is aligned on what is being built and why.
 
 ---
 
-## Phase 4: Tasks and graders
+## Phase 1 - Typed contracts and config
 
-Then:
+### Goal
 
-* `tasks/*.py`
-* `grader/*.py`
+Define the shared schema language for all later modules.
+
+### Build
+
+Inside `models/` and `config/`:
+
+* `EnvConfig`
+* `SensorNoiseConfig`
+* `RewardWeights`
+* `TaskConfig`
+* `ZoneState` (or hidden zone equivalent)
+* `ZoneObservation`
+* `Observation`
+* `TaskAction`
+* `Action`
+* `RewardBreakdown`
+* core enums:
+  * difficulty
+  * action types
+  * lifecycle states
+  * strategic classes
+* preset configs:
+  * easy
+  * medium
+  * hard
+
+### Exit condition
+
+Typed objects instantiate cleanly and presets exist.
 
 ---
 
-## Phase 5: Baseline
+## Phase 2 - Minimal environment skeleton
 
-Then:
+### Goal
 
-* `baseline/heuristic_agent.py`
-* `baseline/runner.py`
+Create a runnable `AgriEnv` shell.
+
+### Build
+
+Inside `env/`:
+
+* `environment.py`
+* `state_engine.py`
+* `action_validator.py`
+* optionally `constants.py`
+
+### Must work
+
+* `reset()` returns a valid initial observation
+* `step(action)` returns observation, reward, done, info
+* `state()` returns internal/debug state
+
+### Exit condition
+
+A full dummy episode can run end-to-end.
 
 ---
 
-## Phase 6: API layer
+## Phase 3 - Hidden state and zone lifecycle
 
-Then:
+### Goal
 
-* `api/app.py`
-* routes
+Model true field state and lifecycle transitions.
+
+### Build
+
+Expand zone/state models with:
+
+* true soil metrics
+* crop health
+* crop stage
+* uncertainty
+* health score
+* degradation level
+* lifecycle state:
+  * healthy
+  * at risk
+  * degraded
+* strategic class:
+  * recoverable
+  * salvageable
+  * not worth saving
+
+### Exit condition
+
+Zones evolve sensibly in hidden state, independent of sensor layer.
 
 ---
 
-## Phase 7: Packaging
+## Phase 4 - Transition logic
 
-Then:
+### Goal
 
-* `main.py`
+Make actions produce meaningful state changes.
+
+### Build
+
+Inside `transition_engine.py`:
+
+* fertilizer/input effects
+* irrigation effects
+* day progression
+* nutrient depletion
+* crop progression
+* degradation/recovery dynamics
+* policy choices for delayed effects, diminishing returns, overuse consequences
+
+### Exit condition
+
+Different actions lead to meaningfully different future states.
+
+---
+
+## Phase 5 - Sensor model and partial observability
+
+### Goal
+
+Separate hidden truth from observed values.
+
+### Build
+
+Inside `sensor_model.py`:
+
+* true value to observed value mapping
+* configurable noise and bias
+* staleness drift
+* missing/outlier behavior
+* uncertainty evolution
+* metric visibility by difficulty:
+  * easy: 5 metrics
+  * medium: 10 metrics
+  * hard: 18 metrics
+
+### Exit condition
+
+Observation layer is distinct, configurable, and difficulty-aware.
+
+---
+
+## Phase 6 - Weather engine and macro factors
+
+### Goal
+
+Add global conditions that influence local decisions.
+
+### Build
+
+Inside `weather_engine.py`:
+
+* weather scenario selection per episode
+* daily weather generation
+* 3-day forecast exposure
+* weather effects on moisture, crop stress, and timing effectiveness
+
+### Exit condition
+
+Weather materially affects decisions and outcomes.
+
+---
+
+## Phase 7 - Constraints and operations realism
+
+### Goal
+
+Introduce resource competition and prioritization.
+
+### Build
+
+* daily time budget
+* max tasks per day
+* travel time between zones
+* budget consumption
+* action feasibility checks
+
+### Exit condition
+
+Agent cannot do everything each day; tradeoffs are enforced.
+
+---
+
+## Phase 8 - Reward shaping
+
+### Goal
+
+Provide dense and interpretable step-wise incentives.
+
+### Build
+
+Inside `reward_engine.py`:
+
+* yield delta
+* efficiency bonus
+* correct sacrifice bonus
+* cost penalty
+* overuse penalty
+* waste penalty
+
+### Exit condition
+
+Step rewards follow sensible patterns and align with benchmark intent.
+
+---
+
+## Phase 9 - Task construction
+
+### Goal
+
+Formalize easy/medium/hard benchmark tasks.
+
+### Build
+
+Inside `tasks/`:
+
+* `easy_task.py`
+* `medium_task.py`
+* `hard_task.py`
+* `task_registry.py`
+
+Task profile expectations:
+
+* easy: abundant resources, short horizon, low noise
+* medium: budget pressure, moderate noise, more zones/metrics
+* hard: strong time pressure, sacrifice scenarios, larger horizon, higher uncertainty
+
+### Exit condition
+
+Task metadata and task builders resolve cleanly for all three tasks.
+
+---
+
+## Phase 10 - Deterministic graders
+
+### Goal
+
+Map episode summaries to reproducible scores in `[0,1]`.
+
+### Build
+
+Inside `grader/`:
+
+* `base_grader.py`
+* `easy_grader.py`
+* `medium_grader.py`
+* `hard_grader.py`
+* `grader_factory.py`
+* `scoring_utils.py`
+
+Each grader returns:
+
+* scalar score
+* subscores
+* short explanation
+
+### Exit condition
+
+Given the same episode summary, grading is deterministic across runs.
+
+---
+
+## Phase 11 - Baseline agent
+
+### Goal
+
+Provide a runnable reference implementation.
+
+### Build
+
+Inside `baseline/`:
+
+* `heuristic_agent.py` (first)
+* `runner.py`
+* optional `llm_agent.py` later
+
+### Exit condition
+
+One command runs baseline across all tasks and reports scores.
+
+---
+
+## Phase 12 - API layer
+
+### Goal
+
+Expose required interfaces through FastAPI.
+
+### Build
+
+Inside `api/`:
+
+* FastAPI app
+* `/tasks`
+* `/grader`
+* `/baseline`
+
+Routes must remain thin wrappers over domain logic.
+
+### Exit condition
+
+Local API serves correct structured responses for required routes.
+
+---
+
+## Phase 13 - Validation and scripts
+
+### Goal
+
+Catch submission-breaking issues early.
+
+### Build
+
+Inside `scripts/`:
+
+* `smoke_test.py`
+* `check_submission.py`
+* `run_baseline.py`
+* `simulate_episode.py`
+
+Inside `tests/`:
+
+* focused smoke tests with meaningful assertions
+
+### Exit condition
+
+A repeatable local sanity suite passes before major commits.
+
+---
+
+## Phase 14 - Packaging and deployment
+
+### Goal
+
+Be submission-ready and deployable.
+
+### Build
+
+* `requirements.txt`
 * `Dockerfile`
 * `openenv.yaml`
-* `README.md`
+* `main.py`
+* local Docker verification
+* Hugging Face Space deployment check
+
+### Exit condition
+
+Containerized environment runs and responds as expected.
+
+---
+
+## Phase 15 - Final polish
+
+### Goal
+
+Maximize judging clarity and repository quality.
+
+### Polish
+
+* README quality pass
+* example outputs
+* architecture notes
+* scoring explanation
+* naming cleanup
+* dead code removal
+
+### Exit condition
+
+Repository is presentation-ready and submission-ready.
+
+---
+
+## Canonical shortest actionable order
+
+1. models + config
+2. environment skeleton
+3. state + lifecycle
+4. transition logic
+5. sensor model
+6. weather
+7. constraints (time/budget/operations)
+8. reward
+9. tasks
+10. graders
+11. baseline
+12. API
+13. validation scripts
+14. Docker + `openenv.yaml` + deployment
+15. README polish
 
 ---
 
