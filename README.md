@@ -13,9 +13,29 @@ This project is structured to simulate real-world agricultural decision-making u
 
 ## 🚧 Project Status
 
-Phase 1 complete: core typed models and configuration presets are implemented.
+- Phase 1 complete: Typed models and configuration system
+- Phase 2 complete: Minimal environment loop (`reset` / `step` / `state`)
 
-Next: build the environment execution loop (`reset` / `step`) and simulation skeleton.
+Next: state dynamics, lifecycle transitions, and action effects
+
+## ⚙️ Quick Example
+
+```python
+from config import get_config
+from env import AgriEnv
+from models import Action, Difficulty
+
+config = get_config(Difficulty.EASY)
+env = AgriEnv(config)
+
+obs = env.reset()
+
+for _ in range(5):
+    action = Action(tasks=[])  # no-op action
+    obs, reward, done, info = env.step(action)
+    if done:
+        break
+```
 
 ## 🧩 Core Concepts
 
@@ -37,7 +57,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 
 - `models/`: typed domain contracts
 - `config/`: presets and tunable parameters
-- `env/`: simulation logic (in progress)
+- `env/`: simulation engine (reset/step loop implemented)
 - `grader/`: deterministic scoring (planned)
 - `baseline/`: reference agents (planned)
 
@@ -47,3 +67,14 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Difficulty-based presets (`easy`, `medium`, `hard`)
 - Structured action and observation contracts
 - Hidden-state and observation-layer separation
+- Runnable environment loop (`reset`, `step`, `state`)
+- Resource constraints (time, budget) enforcement
+
+## 🧪 Design Philosophy
+
+This environment is designed to simulate real-world agricultural decision-making under:
+
+- partial observability
+- noisy measurements
+- resource constraints
+- strategic trade-offs

@@ -5,6 +5,26 @@ from collections.abc import Callable
 
 from models.config_models import Difficulty, EnvConfig, RewardWeights, SensorNoiseConfig, TaskConfig
 
+# Metric semantics reference (Phase 1 doc-comment):
+# - soil_moisture: Root-zone water availability; low values increase crop stress.
+# - ph: Acidity/alkalinity balance; out-of-range values reduce nutrient uptake.
+# - nitrogen: Primary vegetative nutrient; low levels reduce growth rate.
+# - phosphorus: Root/energy-transfer nutrient; low levels hurt establishment.
+# - potassium: Water regulation/stress nutrient; low levels reduce resilience.
+# - canopy_temp: Heat stress proxy; elevated values can indicate water stress.
+# - salinity: Salt load in soil; high salinity suppresses uptake and growth.
+# - organic_matter: Soil quality proxy; supports moisture retention and fertility.
+# - evapotranspiration: Water loss demand; higher values increase irrigation need.
+# - leaf_wetness: Surface moisture proxy; persistent wetness can raise disease risk.
+# - chlorophyll_index: Plant vigor proxy; lower values often reflect nutrient stress.
+# - pest_pressure: Biotic stress level; higher pressure can degrade crop health.
+# - disease_risk: Probability/intensity of disease conditions.
+# - root_zone_stress: Composite subsurface stress indicator affecting growth.
+# - water_table_depth: Subsurface water availability proxy; extremes can hurt roots.
+# - compaction_index: Soil density proxy; high compaction limits root penetration.
+# - solar_radiation: Photosynthetic energy input affecting growth potential.
+# - wind_speed: Microclimate stress factor influencing evapotranspiration.
+
 ALL_METRICS: list[str] = [
     "soil_moisture",
     "ph",
@@ -28,6 +48,7 @@ ALL_METRICS: list[str] = [
 
 
 def get_visible_metrics(visible_count: int) -> list[str]:
+    """Return the first N metric names exposed for a task difficulty."""
     # Enforces difficulty ladder bounds (easy/medium/hard metric exposure).
     if visible_count < 1 or visible_count > len(ALL_METRICS):
         raise ValueError(f"visible_count must be between 1 and {len(ALL_METRICS)}")
@@ -141,5 +162,6 @@ PRESETS: dict[Difficulty, Callable[[int | None], EnvConfig]] = {
 
 
 def get_config(difficulty: Difficulty, seed: int | None = 42) -> EnvConfig:
+    """Build and return a fresh EnvConfig for the requested difficulty."""
     # Return a fresh config object per call to avoid shared mutable state.
     return PRESETS[difficulty](seed)

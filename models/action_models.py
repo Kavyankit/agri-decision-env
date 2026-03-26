@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class ActionType(str, Enum):
+    """Supported action categories for one environment step."""
     TAKE_READING = "take_reading"
     APPLY_INPUT = "apply_input"
     IRRIGATE = "irrigate"
@@ -14,6 +15,7 @@ class ActionType(str, Enum):
 
 
 class TaskAction(BaseModel):
+    """Single zone-level operation requested by the agent."""
     zone_id: int
     action_type: ActionType
     # Used by APPLY_INPUT to specify nutrient/input category.
@@ -25,4 +27,5 @@ class TaskAction(BaseModel):
 
 
 class Action(BaseModel):
+    """Collection of zone-level tasks executed in one step/day."""
     tasks: list[TaskAction] = Field(default_factory=list)
