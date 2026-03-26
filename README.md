@@ -15,8 +15,9 @@ This project is structured to simulate real-world agricultural decision-making u
 
 - Phase 1 complete: Typed models and configuration system
 - Phase 2 complete: Minimal environment loop (`reset` / `step` / `state`)
+- Phase 3 complete: Hidden state evolution and lifecycle dynamics
 
-Next: state dynamics, lifecycle transitions, and action effects
+Next: Action effects (interventions, recovery, diminishing returns)
 
 ## ⚙️ Quick Example
 
@@ -40,7 +41,9 @@ for _ in range(5):
 ## 🧩 Core Concepts
 
 - **Zones**: field segments with soil, crop, and health state.
-- **Hidden state vs observations**: true field state is partially observable through noisy readings.
+- **Hidden State vs Observations**: true field state evolves internally and is only partially observable.
+- **Lifecycle Dynamics**: zones transition between healthy, at-risk, and degraded states over time.
+- **Strategic Classes**: zones are categorized as recoverable, salvageable, or not worth saving.
 - **Actions**: agents can take readings, apply inputs, irrigate, or wait.
 - **Constraints**: limited time, budget, and daily operational capacity.
 - **Objective**: maximize yield and efficiency while making strategic trade-offs.
@@ -61,6 +64,14 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `grader/`: deterministic scoring (planned)
 - `baseline/`: reference agents (planned)
 
+## 🧠 Simulation Behavior
+
+- Zones undergo passive degradation over time
+- Crop stage progression increases risk of deterioration
+- Health, uncertainty, and degradation are internally coupled
+- Lifecycle classification is derived from hidden state
+- Observations expose only a subset of metrics depending on difficulty
+
 ## 🛠️ Current Capabilities
 
 - Typed environment configuration system
@@ -69,6 +80,8 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Hidden-state and observation-layer separation
 - Runnable environment loop (`reset`, `step`, `state`)
 - Resource constraints (time, budget) enforcement
+- Passive lifecycle dynamics (degradation, health, uncertainty)
+- Strategic zone classification (recoverable / not-worth-saving)
 
 ## 🧪 Design Philosophy
 
