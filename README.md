@@ -20,8 +20,9 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 5 complete: Sensor model with noise, partial observability, and staleness dynamics
 - Phase 6 complete: Weather engine with external dynamics and forecast integration
 - Phase 7 complete: Operational constraints with travel-time and observation limits
+- Phase 8 complete: Dense reward shaping with interpretable breakdown
 
-Next: Reward engine and optimization objectives
+Next: Task construction, graders, and baseline agents
 
 ## ⚙️ Quick Example
 
@@ -55,6 +56,7 @@ for _ in range(5):
 - **Forecast**: agents receive a limited-horizon weather forecast to enable planning under uncertainty.
 - **Travel Constraints**: moving between zones consumes time, introducing spatial cost to decision-making.
 - **Observation Limits**: only a limited number of zones can be observed per day, forcing prioritization.
+- **Reward Shaping**: step-wise rewards combine yield change, efficiency, sacrifice choices, and cost/overuse/waste signals.
 - **Constraints**: limited time, budget, and daily operational capacity.
 - **Objective**: maximize yield and efficiency while making strategic trade-offs.
 
@@ -100,6 +102,8 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - First action starts at its zone without travel cost (simplified starting position)
 - Observation actions (`TAKE_READING`) are limited per day to model operational capacity
 - Information gathering now competes with action execution under shared time constraints
+- Per-step reward is computed from a yield proxy (`crop_health * crop_stage`) and weighted components
+- Reward breakdown is exposed in `info.reward_breakdown` to aid debugging and grader alignment
 
 ## 🛠️ Current Capabilities
 
@@ -126,6 +130,8 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Daily observation cap enforcing limited sensing operations
 - Config-driven toggles for travel constraints and observation limits
 - Extended debug info (`travel_time_spent`, `zones_refreshed`) for analysis
+- Phase 8 reward engine with configurable `RewardWeights`
+- Per-step `RewardBreakdown` logging yield, efficiency, sacrifice, cost, overuse, and waste terms
 
 ## 🧪 Design Philosophy
 
@@ -137,3 +143,4 @@ This environment is designed to simulate real-world agricultural decision-making
 - strategic trade-offs
 - exogenous environmental dynamics and planning signals
 - operational constraints and spatial decision costs
+- interpretable reward signals that stay aligned with future grading

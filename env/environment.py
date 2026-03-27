@@ -4,11 +4,13 @@ import random
 from models.action_models import Action, ActionType
 from models.config_models import EnvConfig
 from models.observation_models import Observation
+from models.zone_models import StrategicClass
 from env.action_validator import validate_action
 from env.constants import ACTION_BUDGET_COST, ACTION_TIME_COST_HOURS, TRAVEL_TIME_PER_ZONE_HOURS
 from env.state_engine import build_observation, evolve_zones, initialize_zones
 from env.transition_engine import apply_action_effects
 from env.weather_engine import apply_weather_effects, build_forecast, generate_weather_sequence
+from env.reward_engine import compute_reward
 
 
 class AgriEnv:
@@ -72,6 +74,16 @@ class AgriEnv:
         if self.done:
             raise ValueError("Cannot call step() after episode is done; call reset()")
 
+        # Phase 8 reward shaping uses a stable "before" snapshot from hidden state.
+        # We compute these immediately so later in-step updates (weather, lifecycle)
+        # don't change what "before" means.
+        yield_before_total = sum(z.crop_health * z.crop_stage for z in self.zones)
+        not_worth_saved_zone_ids_before = {
+            z.zone_id
+            for z in self.zones
+            if z.strategic_class == StrategicClass.NOT_WORTH_SAVING
+        }
+
         validate_action(
             action=action,
             config=self.config,
@@ -130,6 +142,10 @@ class AgriEnv:
         # Phase 3: purely passive lifecycle evolution (no intervention effects yet).
         evolve_zones(self.zones, self.config)
 
+        # Yield proxy after the day's hidden-state updates.
+        # (Staleness updates uncertainty only, so it doesn't affect the yield proxy.)
+        yield_after_total = sum(z.crop_health * z.crop_stage for z in self.zones)
+
         # Phase 5 staleness: all zones age by one day; TAKE_READING refreshes selected zones.
         read_zone_ids = {
             t.zone_id for t in action.tasks if t.action_type == ActionType.TAKE_READING
@@ -142,8 +158,18 @@ class AgriEnv:
             # Reading a zone refreshes its information immediately.
             self._stale_days_by_zone[zone_id] = 0
 
-        # Temporary placeholder reward (cost-only); full state-aligned reward is added in Phase 8.
-        reward = -0.01 * spent_budget
+        # Phase 8: dense reward with an interpretable breakdown.
+        reward_breakdown = compute_reward(
+            action=action,
+            config=self.config,
+            spent_budget=spent_budget,
+            spent_time=spent_time,
+            yield_before_total=yield_before_total,
+            yield_after_total=yield_after_total,
+            overuse_penalty_applied=float(transition_info.get("overuse_penalty_applied", 0.0)),
+            not_worth_saved_zone_ids_before=not_worth_saved_zone_ids_before,
+        )
+        reward = reward_breakdown.total
         self.day += 1
         self.done = self.day >= self.config.task.max_days
 
@@ -172,8 +198,13 @@ class AgriEnv:
             "spent_time": spent_time,
             "travel_time_spent": travel_time,
             "actions_count": len(action.tasks),
-            "phase": "phase_7_constraints",
+            "phase": "phase_8_reward_shaping",
             "zones_refreshed": len(read_zone_ids),
+            "reward_breakdown": (
+                reward_breakdown.model_dump()
+                if hasattr(reward_breakdown, "model_dump")
+                else reward_breakdown.dict()
+            ),
             "weather": {
                 "rain_probability": weather_info["rain_probability"],
                 "temperature": weather_info["temperature"],
