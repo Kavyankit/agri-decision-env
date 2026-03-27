@@ -1,3 +1,11 @@
+---
+title: Agri Decision OpenEnv
+emoji: 🌱
+colorFrom: green
+colorTo: blue
+sdk: docker
+---
+
 # 🌾 Agri Decision Environment (OpenEnv)
 
 **Agri Decision Environment** is a deterministic, multi-zone agricultural simulation for training and evaluating agents under **partial observability**, **resource limits**, and **real operational friction**—not textbook full-information control.
