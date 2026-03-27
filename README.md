@@ -23,8 +23,9 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 8 complete: Dense reward shaping with interpretable breakdown
 - Phase 9 complete: Task layer and registry for easy/medium/hard benchmarks
 - Phase 10 complete: Deterministic graders with score, subscores, and explanation
+- Phase 11 complete: Heuristic baseline agent and multi-task runner
 
-Next: Baseline agent runner and API integration
+Next: API integration and validation scripts
 
 ## ⚙️ Quick Example
 
@@ -43,6 +44,17 @@ for _ in range(5):
     obs, reward, done, info = env.step(action)
     if done:
         break
+```
+
+### Baseline Runner Example
+
+```python
+from baseline import run_all_tasks
+
+# Runs deterministic heuristic baseline on easy/medium/hard.
+results = run_all_tasks(seed=42)
+for r in results:
+    print(r["task_id"], round(r["score"], 3), r["explanation"])
 ```
 
 ## 🧩 Core Concepts
@@ -78,7 +90,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `env/`: simulation engine (loop + lifecycle + transition logic implemented)
 - `tasks/`: easy/medium/hard benchmark task wrappers over presets
 - `grader/`: deterministic scoring stack (`base`, `easy`, `medium`, `hard`, factory)
-- `baseline/`: reference agents (planned)
+- `baseline/`: heuristic reference agent and runner across tasks
 
 ## 🧠 Simulation Behavior
 
@@ -110,6 +122,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Reward breakdown is exposed in `info.reward_breakdown` to aid debugging and grader alignment
 - Benchmark tasks (easy/medium/hard) are defined as thin wrappers around configuration presets
 - Episode summaries can be mapped deterministically to normalized benchmark scores
+- A deterministic heuristic agent can run full episodes for all benchmark tasks
 
 ## 🛠️ Current Capabilities
 
@@ -140,6 +153,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Per-step `RewardBreakdown` logging yield, efficiency, sacrifice, cost, overuse, and waste terms
 - Phase 9 task layer exposing easy/medium/hard presets via a simple registry
 - Phase 10 deterministic grader package returning `score`, `subscores`, and short explanation
+- Phase 11 baseline package with `HeuristicAgent`, `run_task`, and `run_all_tasks`
 
 ## 🧪 Design Philosophy
 
