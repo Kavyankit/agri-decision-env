@@ -24,8 +24,9 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 9 complete: Task layer and registry for easy/medium/hard benchmarks
 - Phase 10 complete: Deterministic graders with score, subscores, and explanation
 - Phase 11 complete: Heuristic baseline agent and multi-task runner
+- Phase 12 complete: FastAPI layer exposing tasks, grader, and baseline routes
 
-Next: API integration and validation scripts
+Next: Validation scripts and smoke checks
 
 ## ⚙️ Quick Example
 
@@ -91,6 +92,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `tasks/`: easy/medium/hard benchmark task wrappers over presets
 - `grader/`: deterministic scoring stack (`base`, `easy`, `medium`, `hard`, factory)
 - `baseline/`: heuristic reference agent and runner across tasks
+- `api/`: FastAPI routes (`/tasks`, `/grader`, `/baseline`) as thin wrappers
 
 ## 🧠 Simulation Behavior
 
@@ -123,6 +125,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Benchmark tasks (easy/medium/hard) are defined as thin wrappers around configuration presets
 - Episode summaries can be mapped deterministically to normalized benchmark scores
 - A deterministic heuristic agent can run full episodes for all benchmark tasks
+- API routes provide deterministic access to task metadata, grading, and baseline runs
 
 ## 🛠️ Current Capabilities
 
@@ -154,6 +157,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Phase 9 task layer exposing easy/medium/hard presets via a simple registry
 - Phase 10 deterministic grader package returning `score`, `subscores`, and short explanation
 - Phase 11 baseline package with `HeuristicAgent`, `run_task`, and `run_all_tasks`
+- Phase 12 FastAPI app with `/tasks`, `/grader`, `/baseline`, and `/health` endpoints
 
 ## 🧪 Design Philosophy
 
