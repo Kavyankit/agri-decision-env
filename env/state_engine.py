@@ -1,9 +1,12 @@
 # File: env/state_engine.py
+import random
+
 from models.config_models import EnvConfig
-from models.observation_models import Observation, ZoneObservation
+from models.observation_models import Observation
 from models.zone_models import LifecycleState, StrategicClass, ZoneState
 from config.env_presets import ALL_METRICS, get_visible_metrics
 from env.constants import DEFAULT_CROP_HEALTH, DEFAULT_CROP_STAGE, DEFAULT_METRIC_VALUE
+from env.sensor_model import observe_zone
 
 
 def initialize_zones(config: EnvConfig) -> list[ZoneState]:
@@ -68,21 +71,22 @@ def build_observation(
     remaining_budget: float,
     remaining_time_budget: float,
     visible_metrics_count: int,
+    config: EnvConfig,
+    stale_days_by_zone: dict[int, int],
+    rng: random.Random,
 ) -> Observation:
     """Convert hidden state and resource counters into an agent observation."""
+    # Difficulty controls how many metric names are visible to the agent.
     visible_metric_names = get_visible_metrics(visible_metrics_count)
 
-    # Phase 3: no sensing noise yet, but we still slice observable metrics by difficulty.
-    # Sensor model + staleness drift arrive in Phase 5.
+    # Phase 5: observation layer uses sensor model (noise/bias/stale/missing/outlier).
     zone_obs = [
-        ZoneObservation(
-            zone_id=z.zone_id,
-            observed_metrics={name: z.true_metrics.get(name) for name in visible_metric_names},
-            crop_health=z.crop_health,
-            crop_stage=z.crop_stage,
-            uncertainty=z.uncertainty,
-            # Placeholder for staleness; real staleness tracking arrives with the sensor model (Phase 5).
-            stale_days=0,
+        observe_zone(
+            zone=z,
+            visible_metric_names=visible_metric_names,
+            stale_days=stale_days_by_zone.get(z.zone_id, 0),
+            config=config,
+            rng=rng,
         )
         for z in zones
     ]

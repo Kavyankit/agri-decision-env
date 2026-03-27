@@ -17,8 +17,9 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 2 complete: Minimal environment loop (`reset` / `step` / `state`)
 - Phase 3 complete: Hidden state evolution and lifecycle dynamics
 - Phase 4 complete: Deterministic action effects and transition logic
+- Phase 5 complete: Sensor model with noise, partial observability, and staleness dynamics
 
-Next: Sensor model and partial observability noise layer
+Next: Reward engine and optimization objectives
 
 ## ⚙️ Quick Example
 
@@ -46,6 +47,8 @@ for _ in range(5):
 - **Lifecycle Dynamics**: zones transition between healthy, at-risk, and degraded states over time.
 - **Strategic Classes**: zones are categorized as recoverable, salvageable, or not worth saving.
 - **Actions**: agents can take readings, apply inputs, irrigate, or wait.
+- **Sensor Model**: observations include noise, bias, missing values, and occasional outliers.
+- **Staleness**: information degrades over time unless refreshed via `TAKE_READING`.
 - **Constraints**: limited time, budget, and daily operational capacity.
 - **Objective**: maximize yield and efficiency while making strategic trade-offs.
 
@@ -76,6 +79,11 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Repeated same-zone interventions have diminishing returns
 - Over-intervention applies non-linear degradation penalties
 - Hidden state updates are metric-validated and clamped to `[0, 1]`
+- Observations are generated through a sensor model (noise, bias, missing values, outliers)
+- Observation quality degrades with staleness (time since last reading)
+- `TAKE_READING` resets staleness and improves information quality
+- Uncertainty reflects both hidden degradation and sensor noise intensity
+- Staleness accumulation is capped to maintain simulation stability
 
 ## 🛠️ Current Capabilities
 
@@ -89,6 +97,10 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Strategic zone classification (recoverable / not-worth-saving)
 - Phase 4 transition engine with action effects and per-zone recovery
 - Transition debug metadata in `info` (`recovery_applied`, `overuse_penalty_applied`, `interventions_zones`)
+- Observation layer may include missing metric values (`None`), and agents must handle them safely
+- Phase 5 sensor model with noisy, partial, and stale observations
+- Staleness tracking per zone with refresh via `TAKE_READING`
+- Deterministic mode support (noise toggle via config)
 
 ## 🧪 Design Philosophy
 

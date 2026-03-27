@@ -1,5 +1,7 @@
 # File: env/environment.py
-from models.action_models import Action
+import random
+
+from models.action_models import Action, ActionType
 from models.config_models import EnvConfig
 from models.observation_models import Observation
 from env.action_validator import validate_action
@@ -19,6 +21,11 @@ class AgriEnv:
         self.remaining_time_budget = config.task.daily_time_budget
         # Lightweight per-step trace for debugging and later grading integration.
         self.history: list[dict] = []
+        # Phase 5 sensor state: deterministic RNG + staleness per zone.
+        # `_rng` keeps randomness reproducible when a seed is provided.
+        self._rng = random.Random(config.seed)
+        # Stores "days since last reading" for each zone_id.
+        self._stale_days_by_zone: dict[int, int] = {}
 
     def reset(self) -> Observation:
         """Start a new episode and return the initial agent observation."""
@@ -29,12 +36,19 @@ class AgriEnv:
         self.remaining_budget = self.config.task.initial_budget
         self.remaining_time_budget = self.config.task.daily_time_budget
         self.history = []
+        # Re-seed RNG at reset so episodes are repeatable with same seed.
+        self._rng = random.Random(self.config.seed)
+        # At episode start, all zones are fresh (stale_days = 0).
+        self._stale_days_by_zone = {z.zone_id: 0 for z in self.zones}
         return build_observation(
             day=self.day,
             zones=self.zones,
             remaining_budget=self.remaining_budget,
             remaining_time_budget=self.remaining_time_budget,
             visible_metrics_count=self.config.task.visible_metrics,
+            config=self.config,
+            stale_days_by_zone=self._stale_days_by_zone,
+            rng=self._rng,
         )
 
     def step(self, action: Action) -> tuple[Observation, float, bool, dict]:
@@ -77,6 +91,18 @@ class AgriEnv:
         # Phase 3: purely passive lifecycle evolution (no intervention effects yet).
         evolve_zones(self.zones, self.config)
 
+        # Phase 5 staleness: all zones age by one day; TAKE_READING refreshes selected zones.
+        read_zone_ids = {
+            t.zone_id for t in action.tasks if t.action_type == ActionType.TAKE_READING
+        }
+        for zone in self.zones:
+            # Cap stale-day accumulation for stability in long episodes.
+            next_stale = self._stale_days_by_zone.get(zone.zone_id, 0) + 1
+            self._stale_days_by_zone[zone.zone_id] = min(10, next_stale)
+        for zone_id in read_zone_ids:
+            # Reading a zone refreshes its information immediately.
+            self._stale_days_by_zone[zone_id] = 0
+
         # Temporary placeholder reward (cost-only); full state-aligned reward is added in Phase 8.
         reward = -0.01 * spent_budget
         self.day += 1
@@ -91,12 +117,16 @@ class AgriEnv:
             remaining_budget=self.remaining_budget,
             remaining_time_budget=self.remaining_time_budget,
             visible_metrics_count=self.config.task.visible_metrics,
+            config=self.config,
+            stale_days_by_zone=self._stale_days_by_zone,
+            rng=self._rng,
         )
         info = {
             "spent_budget": spent_budget,
             "spent_time": spent_time,
             "actions_count": len(action.tasks),
-            "phase": "phase_4_transition_logic",
+            "phase": "phase_5_sensor_model",
+            "zones_refreshed": len(read_zone_ids),
             **transition_info,
         }
         self.history.append({"day": self.day, **info})
@@ -112,4 +142,7 @@ class AgriEnv:
             "remaining_time_budget": self.remaining_time_budget,
             "zone_count": len(self.zones),
             "history_length": len(self.history),
+            "avg_stale_days": (
+                sum(self._stale_days_by_zone.values()) / max(1, len(self._stale_days_by_zone))
+            ),
         }

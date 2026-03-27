@@ -67,6 +67,7 @@ def _apply_take_reading(zone: ZoneState, scale: float) -> None:
 
 def apply_action_effects(zones: list[ZoneState], action: Action) -> dict:
     """Apply deterministic Phase-4 action effects to hidden zone state."""
+    # Fast lookup so we can find a zone by id in O(1).
     zone_by_id = {z.zone_id: z for z in zones}
     action_counts: dict[tuple[int, ActionType], int] = defaultdict(int)
     interventions_by_zone: dict[int, int] = defaultdict(int)
@@ -107,6 +108,7 @@ def apply_action_effects(zones: list[ZoneState], action: Action) -> dict:
                 "zone_id": task.zone_id,
                 "action_type": task.action_type.value,
                 "scale": scale,
+                # Only intervention actions produce recovery values.
                 "recovery": recovery if task.action_type in {ActionType.IRRIGATE, ActionType.APPLY_INPUT} else 0.0,
             }
         )
