@@ -15,6 +15,7 @@ def _check_files(root: Path) -> list[str]:
     """Check presence of critical project files."""
     required_paths = [
         "README.md",
+        "docs/06_hackathon_instructions_checklist.md",
         "docs/03_prd_hld.md",
         "env/environment.py",
         "env/reward_engine.py",
@@ -25,9 +26,11 @@ def _check_files(root: Path) -> list[str]:
         "scripts/smoke_test.py",
         "scripts/run_baseline.py",
         "scripts/simulate_episode.py",
+        "scripts/openai_baseline.py",
         "requirements.txt",
         "Dockerfile",
         "openenv.yaml",
+        ".env.example",
         "main.py",
     ]
     missing: list[str] = []

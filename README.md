@@ -55,6 +55,7 @@ This project is structured to simulate real-world agricultural decision-making u
 - [PRD & HLD](docs/03_prd_hld.md)
 - [Judging Alignment](docs/04_judging_alignment.md)
 - [Heuristic agent — example CLI simulation run](docs/05_heuristic_agent_simulation_runs.md)
+- [Hackathon submission checklist](docs/06_hackathon_instructions_checklist.md)
 
 ## 🚧 Project Status
 
@@ -74,7 +75,19 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 14 complete: Packaging and deployment assets (`requirements`, `Dockerfile`, `openenv.yaml`, `main.py`)
 - Phase 15 complete: Final production polish and deployment hardening
 
-Next: Deployment execution (container publish / platform rollout)
+Next: deploy to Hugging Face Spaces (Docker) and run final manual checks — see [submission checklist](docs/06_hackathon_instructions_checklist.md).
+
+## 📊 Baseline results
+
+Deterministic **heuristic** baseline (`HeuristicAgent`), **seed = 42**. Reproduce with `python scripts/run_baseline.py` (or `from baseline import run_all_tasks; run_all_tasks(42)`).
+
+| Task   | Score (grader, in [0, 1]) |
+|--------|---------------------------|
+| Easy   | 0.675 |
+| Medium | 0.688 |
+| Hard   | 0.636 |
+
+Rounded to three decimals; full floats in command output. Same commit and `requirements.txt` → same scores.
 
 ## ⚙️ Quick Example
 
@@ -239,6 +252,13 @@ Quick start:
 ```bash
 python scripts/simulate_episode.py --task easy --seed 42 --mode heuristic --format text
 python scripts/run_baseline.py --task easy --seed 42
+```
+
+**OpenAI client + API smoke** (submission helper): requires `OPENAI_API_KEY` and a **running** API (`python main.py` or Docker). Optional: `OPENENV_BASE_URL` for a deployed Space (default `http://127.0.0.1:7860`). Copy **`.env.example`** to **`.env`** and set variables locally (`.env` is not committed).
+
+```bash
+set OPENAI_API_KEY=sk-...   # Linux/macOS: export OPENAI_API_KEY=sk-...
+python scripts/openai_baseline.py
 ```
 
 ## 🐳 Docker Run
