@@ -2,7 +2,7 @@
 import random
 
 from models.config_models import EnvConfig
-from models.observation_models import Observation
+from models.observation_models import Observation, ForecastDay
 from models.zone_models import LifecycleState, StrategicClass, ZoneState
 from config.env_presets import ALL_METRICS, get_visible_metrics
 from env.constants import DEFAULT_CROP_HEALTH, DEFAULT_CROP_STAGE, DEFAULT_METRIC_VALUE
@@ -74,12 +74,14 @@ def build_observation(
     config: EnvConfig,
     stale_days_by_zone: dict[int, int],
     rng: random.Random,
+    forecast: list[ForecastDay],
 ) -> Observation:
     """Convert hidden state and resource counters into an agent observation."""
     # Difficulty controls how many metric names are visible to the agent.
     visible_metric_names = get_visible_metrics(visible_metrics_count)
 
     # Phase 5: observation layer uses sensor model (noise/bias/stale/missing/outlier).
+    # `forecast` is provided by the weather engine (Phase 6).
     zone_obs = [
         observe_zone(
             zone=z,
@@ -95,6 +97,5 @@ def build_observation(
         zones=zone_obs,
         remaining_budget=remaining_budget,
         remaining_time_budget=remaining_time_budget,
-        # Forecast integration is introduced when weather engine is added.
-        forecast=[],
+        forecast=forecast,
     )

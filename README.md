@@ -18,6 +18,7 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 3 complete: Hidden state evolution and lifecycle dynamics
 - Phase 4 complete: Deterministic action effects and transition logic
 - Phase 5 complete: Sensor model with noise, partial observability, and staleness dynamics
+- Phase 6 complete: Weather engine with external dynamics and forecast integration
 
 Next: Reward engine and optimization objectives
 
@@ -49,6 +50,8 @@ for _ in range(5):
 - **Actions**: agents can take readings, apply inputs, irrigate, or wait.
 - **Sensor Model**: observations include noise, bias, missing values, and occasional outliers.
 - **Staleness**: information degrades over time unless refreshed via `TAKE_READING`.
+- **Weather Engine**: external environmental factors (rain, temperature) affect soil moisture, degradation, and crop growth.
+- **Forecast**: agents receive a limited-horizon weather forecast to enable planning under uncertainty.
 - **Constraints**: limited time, budget, and daily operational capacity.
 - **Objective**: maximize yield and efficiency while making strategic trade-offs.
 
@@ -84,6 +87,11 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `TAKE_READING` resets staleness and improves information quality
 - Uncertainty reflects both hidden degradation and sensor noise intensity
 - Staleness accumulation is capped to maintain simulation stability
+- Daily weather affects hidden state through moisture recovery and stress factors (heat + drought)
+- Soil moisture mitigates weather-induced degradation (non-linear interaction)
+- Rain impact has diminishing returns when soil is already saturated
+- Crop growth rate is influenced by temperature
+- Agents receive a rolling weather forecast for future decision-making
 
 ## 🛠️ Current Capabilities
 
@@ -101,6 +109,10 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Phase 5 sensor model with noisy, partial, and stale observations
 - Staleness tracking per zone with refresh via `TAKE_READING`
 - Deterministic mode support (noise toggle via config)
+- Phase 6 weather engine with deterministic scenario-based generation
+- Daily weather application affecting moisture, degradation, and growth
+- Forecast exposure with configurable horizon for planning
+- Integrated external dynamics alongside action and sensor systems
 
 ## 🧪 Design Philosophy
 
@@ -110,3 +122,4 @@ This environment is designed to simulate real-world agricultural decision-making
 - noisy measurements
 - resource constraints
 - strategic trade-offs
+- exogenous environmental dynamics and planning signals

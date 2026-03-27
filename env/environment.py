@@ -8,6 +8,7 @@ from env.action_validator import validate_action
 from env.constants import ACTION_BUDGET_COST, ACTION_TIME_COST_HOURS
 from env.state_engine import build_observation, evolve_zones, initialize_zones
 from env.transition_engine import apply_action_effects
+from env.weather_engine import apply_weather_effects, build_forecast, generate_weather_sequence
 
 
 class AgriEnv:
@@ -26,6 +27,8 @@ class AgriEnv:
         self._rng = random.Random(config.seed)
         # Stores "days since last reading" for each zone_id.
         self._stale_days_by_zone: dict[int, int] = {}
+        # Phase 6 weather sequence (generated at reset).
+        self._weather_days = []
 
     def reset(self) -> Observation:
         """Start a new episode and return the initial agent observation."""
@@ -38,8 +41,20 @@ class AgriEnv:
         self.history = []
         # Re-seed RNG at reset so episodes are repeatable with same seed.
         self._rng = random.Random(self.config.seed)
+        # Generate a deterministic weather timeline per episode.
+        self._weather_days = generate_weather_sequence(self.config, self._rng)
         # At episode start, all zones are fresh (stale_days = 0).
         self._stale_days_by_zone = {z.zone_id: 0 for z in self.zones}
+
+        forecast = build_forecast(
+            weather_days=self._weather_days,
+            day=self.day,
+            horizon=self.config.forecast_horizon,
+        )
+
+        # Build an observation that includes both:
+        # - noisy per-zone readings (sensor model, Phase 5)
+        # - a weather forecast (macro context, Phase 6)
         return build_observation(
             day=self.day,
             zones=self.zones,
@@ -49,6 +64,7 @@ class AgriEnv:
             config=self.config,
             stale_days_by_zone=self._stale_days_by_zone,
             rng=self._rng,
+            forecast=forecast,
         )
 
     def step(self, action: Action) -> tuple[Observation, float, bool, dict]:
@@ -81,12 +97,17 @@ class AgriEnv:
         self.remaining_time_budget -= spent_time
 
         # Step order for Phase 4:
-        # 1) apply actions to hidden state, 2) advance time/crop stage, 3) apply passive evolution.
+        # 1) apply actions, 2) apply weather effects, 3) advance time/crop stage, 4) apply passive evolution.
         transition_info = apply_action_effects(self.zones, action)
 
-        # Crop stage still advances passively each day.
+        # Phase 6 weather effects (macro factors impacting moisture and degradation).
+        today_weather = self._weather_days[self.day]
+        weather_info = apply_weather_effects(self.zones, today_weather)
+
+        # Crop stage still advances each day, with a simple growth multiplier from temperature.
+        growth_multiplier = 0.85 + 0.3 * today_weather.temperature
         for zone in self.zones:
-            zone.crop_stage = min(1.0, zone.crop_stage + 0.02)
+            zone.crop_stage = min(1.0, zone.crop_stage + 0.02 * growth_multiplier)
 
         # Phase 3: purely passive lifecycle evolution (no intervention effects yet).
         evolve_zones(self.zones, self.config)
@@ -111,6 +132,12 @@ class AgriEnv:
         if not self.done:
             self.remaining_time_budget = self.config.task.daily_time_budget
 
+        forecast = build_forecast(
+            weather_days=self._weather_days,
+            day=self.day,
+            horizon=self.config.forecast_horizon,
+        )
+
         obs = build_observation(
             day=self.day,
             zones=self.zones,
@@ -120,13 +147,19 @@ class AgriEnv:
             config=self.config,
             stale_days_by_zone=self._stale_days_by_zone,
             rng=self._rng,
+            forecast=forecast,
         )
         info = {
             "spent_budget": spent_budget,
             "spent_time": spent_time,
             "actions_count": len(action.tasks),
-            "phase": "phase_5_sensor_model",
+            "phase": "phase_6_weather_engine",
             "zones_refreshed": len(read_zone_ids),
+            "weather": {
+                "rain_probability": weather_info["rain_probability"],
+                "temperature": weather_info["temperature"],
+                "stress_applied_total": weather_info["stress_applied_total"],
+            },
             **transition_info,
         }
         self.history.append({"day": self.day, **info})
