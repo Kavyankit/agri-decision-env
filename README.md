@@ -21,8 +21,10 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 6 complete: Weather engine with external dynamics and forecast integration
 - Phase 7 complete: Operational constraints with travel-time and observation limits
 - Phase 8 complete: Dense reward shaping with interpretable breakdown
+- Phase 9 complete: Task layer and registry for easy/medium/hard benchmarks
+- Phase 10 complete: Deterministic graders with score, subscores, and explanation
 
-Next: Task construction, graders, and baseline agents
+Next: Baseline agent runner and API integration
 
 ## ⚙️ Quick Example
 
@@ -57,6 +59,7 @@ for _ in range(5):
 - **Travel Constraints**: moving between zones consumes time, introducing spatial cost to decision-making.
 - **Observation Limits**: only a limited number of zones can be observed per day, forcing prioritization.
 - **Reward Shaping**: step-wise rewards combine yield change, efficiency, sacrifice choices, and cost/overuse/waste signals.
+- **Deterministic Grading**: episode summaries are scored into `[0,1]` with reproducible subscores and explanation text.
 - **Constraints**: limited time, budget, and daily operational capacity.
 - **Objective**: maximize yield and efficiency while making strategic trade-offs.
 
@@ -74,7 +77,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `config/`: presets and tunable parameters
 - `env/`: simulation engine (loop + lifecycle + transition logic implemented)
 - `tasks/`: easy/medium/hard benchmark task wrappers over presets
-- `grader/`: deterministic scoring (planned)
+- `grader/`: deterministic scoring stack (`base`, `easy`, `medium`, `hard`, factory)
 - `baseline/`: reference agents (planned)
 
 ## 🧠 Simulation Behavior
@@ -105,7 +108,8 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Information gathering now competes with action execution under shared time constraints
 - Per-step reward is computed from a yield proxy (`crop_health * crop_stage`) and weighted components
 - Reward breakdown is exposed in `info.reward_breakdown` to aid debugging and grader alignment
- - Benchmark tasks (easy/medium/hard) are defined as thin wrappers around configuration presets
+- Benchmark tasks (easy/medium/hard) are defined as thin wrappers around configuration presets
+- Episode summaries can be mapped deterministically to normalized benchmark scores
 
 ## 🛠️ Current Capabilities
 
@@ -135,6 +139,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Phase 8 reward engine with configurable `RewardWeights`
 - Per-step `RewardBreakdown` logging yield, efficiency, sacrifice, cost, overuse, and waste terms
 - Phase 9 task layer exposing easy/medium/hard presets via a simple registry
+- Phase 10 deterministic grader package returning `score`, `subscores`, and short explanation
 
 ## 🧪 Design Philosophy
 
