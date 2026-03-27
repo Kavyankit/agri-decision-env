@@ -1,6 +1,50 @@
 # 🌾 Agri Decision Environment (OpenEnv)
 
-A real-world agricultural decision-making environment for training and evaluating AI agents under uncertainty, resource constraints, and time pressure.
+**Agri Decision Environment** is a deterministic, multi-zone agricultural simulation for training and evaluating agents under **partial observability**, **resource limits**, and **real operational friction**—not textbook full-information control.
+
+It targets the **OpenEnv × Scaler Hackathon** brief: a real-world-style benchmark where agents **sense imperfectly**, **spend time and budget wisely**, and **balance quick wins against long-term field health**—with reproducible tasks, deterministic grading, and a deployable API. See the [problem statement](docs/01_problem_statement.md) and other documentation to better understand what this repo implements.
+
+## 🧑‍🌾 Real-World Scenario
+
+Imagine you are managing a large agricultural field divided into multiple zones.
+
+Each day:
+
+- You have **limited time and budget**
+- You can **walk between zones** (movement takes time)
+- You carry a **handheld scanner** that gives imperfect readings about soil and crop health
+- Some zones look fine but may be silently degrading
+- Weather changes daily and affects your decisions
+
+You must decide:
+
+- Which zones should you visit today?
+- Should you **inspect (TAKE_READING)** or act immediately?
+- Where should you **irrigate or apply inputs**?
+- Which zones are **not worth saving anymore**?
+
+But there’s a catch:
+
+- You **cannot visit everything**
+- Observations become **stale over time**
+- Measurements are **noisy and incomplete**
+- Over-intervening can actually **damage the field**
+- Weather forecasts are helpful—but not perfect
+
+Your goal is to:
+
+> **Maximize overall crop yield while using resources efficiently and making smart trade-offs.**
+
+---
+
+This environment simulates exactly that decision-making process, allowing AI agents to learn:
+
+- when to act vs observe
+- how to prioritize limited resources
+- how to plan under uncertainty
+- how to ignore low-value areas strategically
+
+This makes the environment a practical testbed for real-world decision systems such as agriculture, logistics, and resource allocation.
 
 ## 📚 Documentation
 
@@ -10,6 +54,7 @@ This project is structured to simulate real-world agricultural decision-making u
 - [Design](docs/02_design.md)
 - [PRD & HLD](docs/03_prd_hld.md)
 - [Judging Alignment](docs/04_judging_alignment.md)
+- [Heuristic agent — example CLI simulation run](docs/05_heuristic_agent_simulation_runs.md)
 
 ## 🚧 Project Status
 
@@ -26,8 +71,10 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 11 complete: Heuristic baseline agent and multi-task runner
 - Phase 12 complete: FastAPI layer exposing tasks, grader, and baseline routes
 - Phase 13 complete: Validation scripts and smoke tests
+- Phase 14 complete: Packaging and deployment assets (`requirements`, `Dockerfile`, `openenv.yaml`, `main.py`)
+- Phase 15 complete: Final production polish and deployment hardening
 
-Next: Packaging and deployment assets
+Next: Deployment execution (container publish / platform rollout)
 
 ## ⚙️ Quick Example
 
@@ -96,6 +143,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `api/`: FastAPI routes (`/tasks`, `/grader`, `/baseline`) as thin wrappers
 - `scripts/`: local validation and run helpers (`smoke_test`, `check_submission`, `run_baseline`, `simulate_episode`)
 - `tests/`: focused smoke tests for task registry, grader, and baseline
+- top-level packaging: `requirements.txt`, `Dockerfile`, `openenv.yaml`, `main.py`
 
 ## 🧠 Simulation Behavior
 
@@ -130,6 +178,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - A deterministic heuristic agent can run full episodes for all benchmark tasks
 - API routes provide deterministic access to task metadata, grading, and baseline runs
 - Validation scripts can quickly sanity-check structure and end-to-end execution
+- The project includes both local (`python main.py`) and Docker (`uvicorn`) run paths
 
 ## 🛠️ Current Capabilities
 
@@ -163,6 +212,40 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Phase 11 baseline package with `HeuristicAgent`, `run_task`, and `run_all_tasks`
 - Phase 12 FastAPI app with `/tasks`, `/grader`, `/baseline`, and `/health` endpoints
 - Phase 13 scripts for smoke checks and local submission validation
+- Phase 14 deployment scaffolding for local and container execution
+
+## 🌐 API Endpoints
+
+- `GET /health`: health probe for runtime checks and container health.
+- `GET /tasks`: benchmark task metadata (`easy`, `medium`, `hard`).
+- `POST /grader`: deterministic scoring for an episode summary.
+- `POST /baseline`: run deterministic baseline on one task or all tasks.
+
+## ▶️ Local Run
+
+- Create/activate venv: `python -m venv .venv` then `.\.venv\Scripts\Activate.ps1`
+- Install deps: `python -m pip install -r requirements.txt`
+- Run app: `python main.py`
+- Run checks:
+  - `python scripts/smoke_test.py`
+  - `python scripts/check_submission.py`
+
+### CLI: heuristic agent (example run)
+
+Step-by-step **example CLI run** (what the heuristic *sees*, why some days have **no tasks** vs **readings**, full sample transcript, and grader command) lives in **[docs/05_heuristic_agent_simulation_runs.md](docs/05_heuristic_agent_simulation_runs.md)** so this README stays short.
+
+Quick start:
+
+```bash
+python scripts/simulate_episode.py --task easy --seed 42 --mode heuristic --format text
+python scripts/run_baseline.py --task easy --seed 42
+```
+
+## 🐳 Docker Run
+
+- Build image: `docker build -t agri-decision-env .`
+- Start container: `docker run -p 7860:7860 agri-decision-env`
+- Verify service: open `http://localhost:7860/health`
 
 ## 🧪 Design Philosophy
 

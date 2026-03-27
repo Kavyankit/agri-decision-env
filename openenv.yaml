@@ -1,0 +1,35 @@
+name: agri-decision-env
+description: >
+  Deterministic multi-zone agricultural decision environment for training and
+  evaluating agents under uncertainty, resource constraints, and planning trade-offs.
+version: "0.1.0"
+
+metadata:
+  owner: "local-project"
+  framework: "fastapi"
+  deterministic: true
+
+tasks:
+  - id: easy
+    description: Low-noise, high-resource benchmark.
+  - id: medium
+    description: Balanced constraints and uncertainty benchmark.
+  - id: hard
+    description: Resource-tight, high-uncertainty benchmark.
+
+endpoints:
+  health: /health
+  tasks: /tasks
+  grader: /grader
+  baseline: /baseline
+
+baseline:
+  command: "python scripts/run_baseline.py"
+  default_seed: 42
+
+run:
+  local:
+    command: "python main.py"
+  docker:
+    build: "docker build -t agri-decision-env ."
+    start: "docker run -p 7860:7860 agri-decision-env"
