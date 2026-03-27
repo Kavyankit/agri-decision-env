@@ -5,6 +5,7 @@ from models.observation_models import Observation
 from env.action_validator import validate_action
 from env.constants import ACTION_BUDGET_COST, ACTION_TIME_COST_HOURS
 from env.state_engine import build_observation, evolve_zones, initialize_zones
+from env.transition_engine import apply_action_effects
 
 
 class AgriEnv:
@@ -65,14 +66,18 @@ class AgriEnv:
         self.remaining_budget -= spent_budget
         self.remaining_time_budget -= spent_time
 
-        # Minimal phase-2 dynamics: small passive crop progression each day.
+        # Step order for Phase 4:
+        # 1) apply actions to hidden state, 2) advance time/crop stage, 3) apply passive evolution.
+        transition_info = apply_action_effects(self.zones, action)
+
+        # Crop stage still advances passively each day.
         for zone in self.zones:
             zone.crop_stage = min(1.0, zone.crop_stage + 0.02)
 
         # Phase 3: purely passive lifecycle evolution (no intervention effects yet).
         evolve_zones(self.zones, self.config)
 
-        # Temporary placeholder reward until `reward_engine.py` is added (Phase 8).
+        # Temporary placeholder reward (cost-only); full state-aligned reward is added in Phase 8.
         reward = -0.01 * spent_budget
         self.day += 1
         self.done = self.day >= self.config.task.max_days
@@ -91,7 +96,8 @@ class AgriEnv:
             "spent_budget": spent_budget,
             "spent_time": spent_time,
             "actions_count": len(action.tasks),
-            "phase": "phase_3_hidden_lifecycle",
+            "phase": "phase_4_transition_logic",
+            **transition_info,
         }
         self.history.append({"day": self.day, **info})
         return obs, reward, self.done, info

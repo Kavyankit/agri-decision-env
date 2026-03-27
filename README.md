@@ -16,8 +16,9 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 1 complete: Typed models and configuration system
 - Phase 2 complete: Minimal environment loop (`reset` / `step` / `state`)
 - Phase 3 complete: Hidden state evolution and lifecycle dynamics
+- Phase 4 complete: Deterministic action effects and transition logic
 
-Next: Action effects (interventions, recovery, diminishing returns)
+Next: Sensor model and partial observability noise layer
 
 ## ⚙️ Quick Example
 
@@ -60,7 +61,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 
 - `models/`: typed domain contracts
 - `config/`: presets and tunable parameters
-- `env/`: simulation engine (reset/step loop implemented)
+- `env/`: simulation engine (loop + lifecycle + transition logic implemented)
 - `grader/`: deterministic scoring (planned)
 - `baseline/`: reference agents (planned)
 
@@ -71,6 +72,10 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Health, uncertainty, and degradation are internally coupled
 - Lifecycle classification is derived from hidden state
 - Observations expose only a subset of metrics depending on difficulty
+- Actions apply deterministic causal effects per zone (`IRRIGATE`, `APPLY_INPUT`, `TAKE_READING`)
+- Repeated same-zone interventions have diminishing returns
+- Over-intervention applies non-linear degradation penalties
+- Hidden state updates are metric-validated and clamped to `[0, 1]`
 
 ## 🛠️ Current Capabilities
 
@@ -82,6 +87,8 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Resource constraints (time, budget) enforcement
 - Passive lifecycle dynamics (degradation, health, uncertainty)
 - Strategic zone classification (recoverable / not-worth-saving)
+- Phase 4 transition engine with action effects and per-zone recovery
+- Transition debug metadata in `info` (`recovery_applied`, `overuse_penalty_applied`, `interventions_zones`)
 
 ## 🧪 Design Philosophy
 
