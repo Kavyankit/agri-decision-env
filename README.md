@@ -73,6 +73,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `models/`: typed domain contracts
 - `config/`: presets and tunable parameters
 - `env/`: simulation engine (loop + lifecycle + transition logic implemented)
+- `tasks/`: easy/medium/hard benchmark task wrappers over presets
 - `grader/`: deterministic scoring (planned)
 - `baseline/`: reference agents (planned)
 
@@ -104,6 +105,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Information gathering now competes with action execution under shared time constraints
 - Per-step reward is computed from a yield proxy (`crop_health * crop_stage`) and weighted components
 - Reward breakdown is exposed in `info.reward_breakdown` to aid debugging and grader alignment
+ - Benchmark tasks (easy/medium/hard) are defined as thin wrappers around configuration presets
 
 ## 🛠️ Current Capabilities
 
@@ -132,6 +134,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Extended debug info (`travel_time_spent`, `zones_refreshed`) for analysis
 - Phase 8 reward engine with configurable `RewardWeights`
 - Per-step `RewardBreakdown` logging yield, efficiency, sacrifice, cost, overuse, and waste terms
+- Phase 9 task layer exposing easy/medium/hard presets via a simple registry
 
 ## 🧪 Design Philosophy
 
