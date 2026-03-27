@@ -25,8 +25,9 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 10 complete: Deterministic graders with score, subscores, and explanation
 - Phase 11 complete: Heuristic baseline agent and multi-task runner
 - Phase 12 complete: FastAPI layer exposing tasks, grader, and baseline routes
+- Phase 13 complete: Validation scripts and smoke tests
 
-Next: Validation scripts and smoke checks
+Next: Packaging and deployment assets
 
 ## ⚙️ Quick Example
 
@@ -93,6 +94,8 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `grader/`: deterministic scoring stack (`base`, `easy`, `medium`, `hard`, factory)
 - `baseline/`: heuristic reference agent and runner across tasks
 - `api/`: FastAPI routes (`/tasks`, `/grader`, `/baseline`) as thin wrappers
+- `scripts/`: local validation and run helpers (`smoke_test`, `check_submission`, `run_baseline`, `simulate_episode`)
+- `tests/`: focused smoke tests for task registry, grader, and baseline
 
 ## 🧠 Simulation Behavior
 
@@ -126,6 +129,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Episode summaries can be mapped deterministically to normalized benchmark scores
 - A deterministic heuristic agent can run full episodes for all benchmark tasks
 - API routes provide deterministic access to task metadata, grading, and baseline runs
+- Validation scripts can quickly sanity-check structure and end-to-end execution
 
 ## 🛠️ Current Capabilities
 
@@ -158,6 +162,7 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Phase 10 deterministic grader package returning `score`, `subscores`, and short explanation
 - Phase 11 baseline package with `HeuristicAgent`, `run_task`, and `run_all_tasks`
 - Phase 12 FastAPI app with `/tasks`, `/grader`, `/baseline`, and `/health` endpoints
+- Phase 13 scripts for smoke checks and local submission validation
 
 ## 🧪 Design Philosophy
 
