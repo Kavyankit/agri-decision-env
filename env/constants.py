@@ -19,3 +19,8 @@ ACTION_BUDGET_COST = {
     "irrigate": 1.5,
     "wait": 0.0,
 }
+
+# Travel-time model (Phase 7):
+# Moving between two zones costs this many hours per zone-index step.
+# Example: moving from zone 2 -> zone 5 adds 3 * TRAVEL_TIME_PER_ZONE_HOURS.
+TRAVEL_TIME_PER_ZONE_HOURS = 0.2

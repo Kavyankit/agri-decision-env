@@ -19,6 +19,7 @@ This project is structured to simulate real-world agricultural decision-making u
 - Phase 4 complete: Deterministic action effects and transition logic
 - Phase 5 complete: Sensor model with noise, partial observability, and staleness dynamics
 - Phase 6 complete: Weather engine with external dynamics and forecast integration
+- Phase 7 complete: Operational constraints with travel-time and observation limits
 
 Next: Reward engine and optimization objectives
 
@@ -52,6 +53,8 @@ for _ in range(5):
 - **Staleness**: information degrades over time unless refreshed via `TAKE_READING`.
 - **Weather Engine**: external environmental factors (rain, temperature) affect soil moisture, degradation, and crop growth.
 - **Forecast**: agents receive a limited-horizon weather forecast to enable planning under uncertainty.
+- **Travel Constraints**: moving between zones consumes time, introducing spatial cost to decision-making.
+- **Observation Limits**: only a limited number of zones can be observed per day, forcing prioritization.
 - **Constraints**: limited time, budget, and daily operational capacity.
 - **Objective**: maximize yield and efficiency while making strategic trade-offs.
 
@@ -92,6 +95,11 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Rain impact has diminishing returns when soil is already saturated
 - Crop growth rate is influenced by temperature
 - Agents receive a rolling weather forecast for future decision-making
+- Movement between zones incurs travel time based on distance (zone index difference)
+- Action ordering affects total travel cost (path-dependent execution)
+- First action starts at its zone without travel cost (simplified starting position)
+- Observation actions (`TAKE_READING`) are limited per day to model operational capacity
+- Information gathering now competes with action execution under shared time constraints
 
 ## 🛠️ Current Capabilities
 
@@ -113,6 +121,11 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - Daily weather application affecting moisture, degradation, and growth
 - Forecast exposure with configurable horizon for planning
 - Integrated external dynamics alongside action and sensor systems
+- Phase 7 travel-time model introducing spatial movement cost between zones
+- Action sequencing affects total time via path-dependent travel overhead
+- Daily observation cap enforcing limited sensing operations
+- Config-driven toggles for travel constraints and observation limits
+- Extended debug info (`travel_time_spent`, `zones_refreshed`) for analysis
 
 ## 🧪 Design Philosophy
 
@@ -123,3 +136,4 @@ This environment is designed to simulate real-world agricultural decision-making
 - resource constraints
 - strategic trade-offs
 - exogenous environmental dynamics and planning signals
+- operational constraints and spatial decision costs

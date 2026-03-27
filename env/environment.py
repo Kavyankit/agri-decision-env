@@ -5,7 +5,7 @@ from models.action_models import Action, ActionType
 from models.config_models import EnvConfig
 from models.observation_models import Observation
 from env.action_validator import validate_action
-from env.constants import ACTION_BUDGET_COST, ACTION_TIME_COST_HOURS
+from env.constants import ACTION_BUDGET_COST, ACTION_TIME_COST_HOURS, TRAVEL_TIME_PER_ZONE_HOURS
 from env.state_engine import build_observation, evolve_zones, initialize_zones
 from env.transition_engine import apply_action_effects
 from env.weather_engine import apply_weather_effects, build_forecast, generate_weather_sequence
@@ -82,11 +82,29 @@ class AgriEnv:
 
         spent_budget = 0.0
         spent_time = 0.0
+        travel_time = 0.0
+        # Current simple rule: first task has no travel cost ("start already on first zone").
+        # Future extension could use a configurable depot/base zone.
+        last_zone_id: int | None = None
         for task in action.tasks:
             action_key = task.action_type.value
             # If explicit cost/time are provided, use them; else fall back to constants.
             spent_budget += task.cost if task.cost > 0 else ACTION_BUDGET_COST.get(action_key, 0.0)
             spent_time += task.duration_hours if task.duration_hours > 0 else ACTION_TIME_COST_HOURS.get(action_key, 0.0)
+
+            # Phase 7 travel realism:
+            # moving between zones consumes time, reducing what can be done in one day.
+            if self.config.travel_constraints_enabled and task.action_type != ActionType.WAIT:
+                # WAIT does not reset movement position; the agent remains at last worked zone.
+                if last_zone_id is not None:
+                    # `abs(...)` makes travel symmetric in this simple linear layout:
+                    # moving 2->5 and 5->2 has the same distance cost.
+                    zone_distance = abs(task.zone_id - last_zone_id)
+                    travel_time += zone_distance * TRAVEL_TIME_PER_ZONE_HOURS
+                last_zone_id = task.zone_id
+
+        # Add travel overhead after summing direct task durations.
+        spent_time += travel_time
 
         if spent_budget > self.remaining_budget:
             raise ValueError("Action exceeds remaining budget")
@@ -152,8 +170,9 @@ class AgriEnv:
         info = {
             "spent_budget": spent_budget,
             "spent_time": spent_time,
+            "travel_time_spent": travel_time,
             "actions_count": len(action.tasks),
-            "phase": "phase_6_weather_engine",
+            "phase": "phase_7_constraints",
             "zones_refreshed": len(read_zone_ids),
             "weather": {
                 "rain_probability": weather_info["rain_probability"],
@@ -175,6 +194,7 @@ class AgriEnv:
             "remaining_time_budget": self.remaining_time_budget,
             "zone_count": len(self.zones),
             "history_length": len(self.history),
+            "travel_constraints_enabled": self.config.travel_constraints_enabled,
             "avg_stale_days": (
                 sum(self._stale_days_by_zone.values()) / max(1, len(self._stale_days_by_zone))
             ),
