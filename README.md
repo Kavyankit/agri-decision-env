@@ -241,6 +241,9 @@ Agent -> Environment -> State Engine -> Reward -> Grader
 - `GET /tasks`: benchmark task metadata (`easy`, `medium`, `hard`).
 - `POST /grader`: deterministic scoring for an episode summary.
 - `POST /baseline`: run deterministic baseline on one task or all tasks.
+- `POST /reset`: start an interactive episode (query: `task_id`, `seed`); returns initial observation.
+- `POST /step`: one environment step; JSON body matches `Action` (`tasks` list). Call `/reset` first.
+- `GET /state`: debug snapshot from the interactive env (`env.state()`). Call `/reset` first.
 
 ## ▶️ Local Run
 

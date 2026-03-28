@@ -1,6 +1,8 @@
 # Hackathon / OpenEnv submission checklist
 
-Use this list when switching from **builder mode** to **submission mode**. Items marked **done in repo** are satisfied by the current codebase or docs. Items marked **you (manual)** require your Hugging Face account, API keys, or a machine with Docker / `openenv` CLI installed.
+Use this list when switching from **builder mode** to **submission mode**. Items marked **done in repo** are satisfied by the current codebase or docs. Items in **manual / deployment** were owner actions outside the repo (HF account, API keys, live Space).
+
+**OpenEnv spec validation** (`openenv validate`, etc.) is **run by judges after submission** — it is not a local dependency (see `requirements.txt`).
 
 ---
 
@@ -9,7 +11,7 @@ Use this list when switching from **builder mode** to **submission mode**. Items
 | Status | Task |
 |--------|------|
 | [x] | **Real-world-style environment** — multi-zone sim, partial observability, constraints (`env/`, `models/`, `config/`). |
-| [x] | **OpenEnv-style API** — FastAPI (`/health`, `/tasks`, `/grader`, `/baseline`), `main.py`, `Dockerfile`, port **7860**, `openenv.yaml`. |
+| [x] | **OpenEnv-style API** — FastAPI (`/health`, `/tasks`, `/grader`, `/baseline`, `/reset`, `/step`, `/state`), `main.py`, `Dockerfile`, port **7860**, `openenv.yaml`. |
 | [x] | **Three tasks + graders** — `easy` / `medium` / `hard`, deterministic scores (`tasks/`, `grader/`). |
 | [x] | **Reward shaping** — `env/reward_engine.py`, `RewardBreakdown`. |
 | [x] | **Heuristic baseline** — `baseline/`, `scripts/run_baseline.py`. |
@@ -20,15 +22,13 @@ Use this list when switching from **builder mode** to **submission mode**. Items
 
 ---
 
-## What you must do manually
+## Manual / deployment (completed)
 
 | Status | Task | Notes |
 |--------|------|--------|
-| [ ] **you** | **Deploy Hugging Face Space (Docker)** | Create Space → SDK **Docker** → public → push/connect this repo. Confirm `Dockerfile` exposes **7860** and `CMD` runs `uvicorn`. **Cannot be done by the repo alone.** |
-| [ ] **you** | **Smoke-test live Space** | After deploy: `GET /health`, `GET /tasks`, `POST /baseline` (e.g. `{"seed": 42}`). Optional: `POST /grader` with a valid `episode_summary`. |
-| [ ] **you** | **Run `openenv validate .`** | Install the OpenEnv CLI if the hackathon provides it, then run from repo root. **Not run in this workspace** (CLI not installed here). |
-| [ ] **you** | **Docker build locally** (optional but recommended) | `docker build -t agri-decision-env .` then `docker run -p 7860:7860 agri-decision-env`. **Skipped here** if Docker is not installed on your PATH. |
-| [ ] **you** | **`scripts/openai_baseline.py` against a live URL** | Set `OPENAI_API_KEY`, set `OPENENV_BASE_URL` to your Space URL if not localhost, start server (local or deployed), run script. |
+| [x] | **Deploy Hugging Face Space (Docker)** | Space created, repo connected, `Dockerfile` on **7860** with `uvicorn`. |
+| [x] | **Smoke-test live Space** | `GET /health`, `GET /tasks`, `POST /baseline` verified against production URL. |
+| [x] | **`scripts/openai_baseline.py` against live URL** | `OPENAI_API_KEY` + `OPENENV_BASE_URL` set (e.g. `.env`); script runs against deployed Space. |
 
 ---
 
@@ -55,12 +55,8 @@ Baseline **scores** in the README are from the **heuristic** agent with **seed =
 
 ---
 
-## Summary: what’s left for you
+## After submission
 
-1. **HF Space deployment** (mandatory if required by brief).  
-2. **Live endpoint checks** on the Space URL.  
-3. **`openenv validate`** when the CLI is available.  
-4. **Local Docker test** (optional).  
-5. **OpenAI script** against production URL + real key (if required for demo).
+Judges run **OpenEnv validation** and any competition checks on the submitted artifact — this is **not** pinned in `requirements.txt`.
 
-Everything else in the checklist above is already in the repository.
+Everything else for this project is **complete** in-repo and deployed as configured above.

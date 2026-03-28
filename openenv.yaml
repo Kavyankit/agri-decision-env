@@ -22,6 +22,9 @@ endpoints:
   tasks: /tasks
   grader: /grader
   baseline: /baseline
+  reset: /reset
+  step: /step
+  state: /state
 
 baseline:
   command: "python scripts/run_baseline.py"

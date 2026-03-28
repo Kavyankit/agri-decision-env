@@ -2,17 +2,23 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
 from baseline import run_all_tasks, run_task
+from env import AgriEnv
 from grader import get_grader
-from tasks import list_tasks
+from models import Action
+from tasks import build_task_config, list_tasks
 
 app = FastAPI(
     title="Agri Decision Environment API",
     description="Thin API wrappers around tasks, graders, and baseline runner.",
     version="0.1.0",
 )
+
+# Interactive OpenEnv-style loop: call `/reset` before `/step` (single global episode).
+_interactive_env: AgriEnv | None = None
 
 
 class GraderRequest(BaseModel):
@@ -31,6 +37,45 @@ class BaselineRequest(BaseModel):
 def health() -> dict:
     """Simple health endpoint for local checks."""
     return {"status": "ok"}
+
+
+@app.post("/reset")
+def reset(task_id: str = "easy", seed: int = 42) -> dict:
+    """
+    Start or restart one interactive episode (OpenEnv-style loop).
+
+    Builds `AgriEnv` from `task_id` + `seed`, then returns the initial observation.
+    """
+    global _interactive_env
+    try:
+        config = build_task_config(task_id, seed=seed)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _interactive_env = AgriEnv(config)
+    obs = _interactive_env.reset()
+    return {"observation": obs.model_dump()}
+
+
+@app.post("/step")
+def step(action: Action) -> dict:
+    """Advance the environment one day. Call `/reset` first."""
+    if _interactive_env is None:
+        raise HTTPException(status_code=400, detail="Call POST /reset before /step.")
+    obs, reward, done, info = _interactive_env.step(action)
+    return {
+        "observation": obs.model_dump(),
+        "reward": float(reward),
+        "done": bool(done),
+        "info": jsonable_encoder(info),
+    }
+
+
+@app.get("/state")
+def interactive_state() -> dict:
+    """Return internal debug state from the running interactive env (call `/reset` first)."""
+    if _interactive_env is None:
+        raise HTTPException(status_code=400, detail="Call POST /reset before /state.")
+    return {"state": jsonable_encoder(_interactive_env.state())}
 
 
 @app.get("/tasks")
