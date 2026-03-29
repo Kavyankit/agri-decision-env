@@ -28,6 +28,7 @@ def _check_files(root: Path) -> list[str]:
         "scripts/simulate_episode.py",
         "scripts/openai_baseline.py",
         "requirements.txt",
+        "pyproject.toml",
         "Dockerfile",
         "openenv.yaml",
         ".env.example",
