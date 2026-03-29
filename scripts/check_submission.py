@@ -32,6 +32,7 @@ def _check_files(root: Path) -> list[str]:
         "openenv.yaml",
         ".env.example",
         "main.py",
+        "inference.py",
     ]
     missing: list[str] = []
     for rel in required_paths:

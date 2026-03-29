@@ -8,7 +8,7 @@ Start the server first (`python main.py` or Docker on port 7860), then:
   set OPENAI_API_KEY=sk-...    # Windows: set OPENAI_API_KEY=sk-...
   python scripts/openai_baseline.py
 
-Optional: `OPENENV_BASE_URL` (default `http://127.0.0.1:7860`) for a deployed Space.
+Optional: `OPENENV_BASE_URL` (defaults to the deployed HF Space; use `http://127.0.0.1:7860` for local `main.py`).
 """
 from __future__ import annotations
 
@@ -55,7 +55,8 @@ def main() -> None:
 
         _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-        base = os.environ.get("OPENENV_BASE_URL", "http://127.0.0.1:7860").rstrip("/")
+        _default_space = "https://kavyankit-agri-decision-openenv.hf.space"
+        base = os.environ.get("OPENENV_BASE_URL", _default_space).rstrip("/")
 
         tasks = _http_json("GET", f"{base}/tasks")
         baseline = _http_json("POST", f"{base}/baseline", {"seed": 42})

@@ -265,11 +265,17 @@ python scripts/simulate_episode.py --task easy --seed 42 --mode heuristic --form
 python scripts/run_baseline.py --task easy --seed 42
 ```
 
-**OpenAI client + API smoke** (submission helper): requires `OPENAI_API_KEY` and a **running** API (`python main.py` or Docker). Optional: `OPENENV_BASE_URL` for a deployed Space (default `http://127.0.0.1:7860`). Copy **`.env.example`** to **`.env`** and set variables locally (`.env` is not committed).
+**OpenAI client + API smoke** (submission helper): requires `OPENAI_API_KEY`. **`OPENENV_BASE_URL`** defaults to the live Space **`https://kavyankit-agri-decision-openenv.hf.space`**; set `http://127.0.0.1:7860` when using local `python main.py`. Copy **`.env.example`** to **`.env`** and set variables locally (`.env` is not committed).
 
 ```bash
 set OPENAI_API_KEY=sk-...   # Linux/macOS: export OPENAI_API_KEY=sk-...
 python scripts/openai_baseline.py
+```
+
+**HTTP inference pipeline** (no OpenAI key): waits for `/health`, then `GET /tasks` and `POST /baseline` for each task (`requests`). **`OPENENV_BASE_URL`** defaults to **`https://kavyankit-agri-decision-openenv.hf.space`**; override for local API.
+
+```bash
+python inference.py
 ```
 
 ## 🐳 Docker Run
