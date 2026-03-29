@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Agri Decision Environment API for OpenEnv Hackathon"
 authors = [{ name = "Kavyankit Mishra" }]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
     "fastapi>=0.100.0",
@@ -13,7 +13,11 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "openai>=1.0.0",
     "requests>=2.31.0",
+    "openenv-core>=0.2.0",
 ]
+
+[project.scripts]
+server = "server.__main__:main"
 
 [project.optional-dependencies]
 dev = [
@@ -28,7 +32,7 @@ build-backend = "setuptools.build_meta"
 # Installable app packages (matches `main.py` / `inference.py` imports: api, baseline, config, env, grader, models, tasks).
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["api*", "baseline*", "config*", "env*", "grader*", "models*", "tasks*"]
+include = ["server*", "api*", "baseline*", "config*", "env*", "grader*", "models*", "tasks*"]
 exclude = ["tests*"]
 
 [tool.setuptools]

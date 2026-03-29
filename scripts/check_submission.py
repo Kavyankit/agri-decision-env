@@ -22,7 +22,7 @@ def _check_files(root: Path) -> list[str]:
         "tasks/task_registry.py",
         "grader/grader_factory.py",
         "baseline/runner.py",
-        "api/app.py",
+        "server/app.py",
         "scripts/smoke_test.py",
         "scripts/run_baseline.py",
         "scripts/simulate_episode.py",

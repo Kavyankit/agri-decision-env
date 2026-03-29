@@ -32,7 +32,7 @@ baseline:
 
 run:
   local:
-    command: "python main.py"
+    command: "uv run server"
   docker:
     build: "docker build -t agri-decision-env ."
     start: "docker run -p 7860:7860 agri-decision-env"
