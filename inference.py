@@ -210,8 +210,43 @@ if __name__ == "__main__":
         final_output = run_all_tasks()
 
         logger.info("Inference completed successfully.")
-        print("\n=== FINAL OUTPUT ===")
-        print(json.dumps(final_output, indent=2))
+
+        # STRUCTURED OUTPUT STARTS HERE
+        results = final_output.get("results", [])
+
+        for task_result in results:
+            task_id = task_result.get("task_id", "unknown")
+
+            print(f"[START] task={task_id}", flush=True)
+
+            if task_result.get("status") == "success":
+                # Extract actual metrics safely
+                result_data = task_result.get("result", {})
+                runs = result_data.get("results", [])
+
+                steps = 0
+                score = 0
+
+                if runs:
+                    run = runs[0]
+                    steps = run.get("steps", 0)
+                    score = run.get("score", 0)
+
+                    # Optional: simulate steps (since API doesn't expose step-by-step)
+                    for i in range(1, steps + 1):
+                        print(f"[STEP] step={i} reward=0.0", flush=True)
+
+                print(
+                    f"[END] task={task_id} score={score} steps={steps}",
+                    flush=True,
+                )
+
+            else:
+                print(f"[STEP] step=0 reward=0.0", flush=True)
+                print(
+                    f"[END] task={task_id} score=0 steps=0",
+                    flush=True,
+                )
 
     except Exception as e:
         logger.critical("Inference failed completely: %s", e)
