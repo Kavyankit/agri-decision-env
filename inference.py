@@ -1,103 +1,80 @@
-# File: inference.py
-"""
-HTTP client pipeline: wait for the Agri Decision Environment API, list tasks, run baseline per task.
+﻿"""LLM agent runner for Agri Decision OpenEnv."""
 
-Uses `OPENENV_BASE_URL`. Default is the deployed **Hugging Face Space**
-([`kavyankit-agri-decision-openenv.hf.space`](https://kavyankit-agri-decision-openenv.hf.space/)).
-Override with `http://127.0.0.1:7860` when running `python main.py` locally.
-"""
 from __future__ import annotations
 
 import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
+from openai import OpenAI
 
 try:
     from dotenv import load_dotenv
-    from pathlib import Path
 
     load_dotenv(Path(__file__).resolve().parent / ".env")
 except ImportError:
     pass
 
-# -----------------------------------------------------------------------------
-# CONFIGURATION
-# -----------------------------------------------------------------------------
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1").rstrip("/")
+MODEL_NAME = os.getenv("MODEL_NAME", "openai/gpt-oss-120b:novita")
+HF_TOKEN = os.getenv("HF_TOKEN")
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+OPENENV_BASE_URL = os.getenv(
+    "OPENENV_BASE_URL",
+    "https://kavyankit-agri-decision-openenv.hf.space",
+).rstrip("/")
 
-# Default: public Space (override for local uvicorn on http://127.0.0.1:7860).
-_DEFAULT_SPACE = "https://kavyankit-agri-decision-openenv.hf.space"
-
-BASE_URL = os.getenv("OPENENV_BASE_URL", _DEFAULT_SPACE).rstrip("/")
-TIMEOUT = 10  # seconds
+SEED = int(os.getenv("SEED", "42"))
+MAX_STEPS = int(os.getenv("MAX_STEPS", "40"))
+MAX_COMPLETION_TOKENS = int(os.getenv("MAX_COMPLETION_TOKENS", "512"))
+TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "20"))
 MAX_RETRIES = 3
-RETRY_DELAY = 2  # seconds
-HEALTH_ENDPOINT = f"{BASE_URL}/health"
+RETRY_DELAY = 2
+HEALTH_ENDPOINT = f"{OPENENV_BASE_URL}/health"
+OPENAI_CLIENT: OpenAI | None = None
 
-# -----------------------------------------------------------------------------
-# LOGGING SETUP
-# -----------------------------------------------------------------------------
+SYSTEM_PROMPT = """You are an autonomous farm operations agent.
+Choose one-day actions from the observation.
+Return only tool arguments for `submit_action`.
+Allowed action_type: take_reading, apply_input, irrigate, wait.
+Prefer safe actions and use take_reading on stale/uncertain zones.
+Keep 1-3 tasks per step. If unsure, return a single wait action.
+"""
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
-# -----------------------------------------------------------------------------
-# HELPER: RETRY WRAPPER
-# -----------------------------------------------------------------------------
 
 
 def request_with_retries(method: str, url: str, **kwargs: Any) -> requests.Response:
-    """
-    Retry wrapper for HTTP requests (cold starts, transient 5xx, network blips).
-
-    Client errors (4xx) are not retried — raised immediately with response body.
-    """
     last_exc: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = requests.request(method, url, timeout=TIMEOUT, **kwargs)
-
             if 400 <= response.status_code < 500:
-                detail = response.text[:500]
                 raise requests.exceptions.HTTPError(
-                    f"Client error {response.status_code}: {detail}"
+                    f"Client error {response.status_code}: {response.text[:400]}"
                 )
-
             if response.status_code >= 500:
                 raise requests.exceptions.HTTPError(
-                    f"Server error: {response.status_code} {response.text[:200]}"
+                    f"Server error {response.status_code}: {response.text[:400]}"
                 )
-
             return response
-
-        except Exception as e:
-            last_exc = e
-            logger.warning("[Attempt %s/%s] Request failed: %s", attempt, MAX_RETRIES, e)
-
+        except Exception as exc:
+            last_exc = exc
+            logger.warning("[Attempt %s/%s] %s %s failed: %s", attempt, MAX_RETRIES, method, url, exc)
             if attempt == MAX_RETRIES:
                 raise
-
             time.sleep(RETRY_DELAY)
-
     raise RuntimeError("Unreachable") from last_exc
 
 
-# -----------------------------------------------------------------------------
-# STEP 1: WAIT FOR SERVICE TO BE READY
-# -----------------------------------------------------------------------------
-
-
 def wait_for_service() -> None:
-    """Poll `/health` until 200 (helps HF Spaces / Docker cold starts)."""
-    logger.info("Waiting for API service to become ready (%s)...", BASE_URL)
-
-    for _ in range(10):
+    logger.info("Waiting for API service at %s", OPENENV_BASE_URL)
+    for _ in range(15):
         try:
             response = requests.get(HEALTH_ENDPOINT, timeout=3)
             if response.status_code == 200:
@@ -105,149 +82,265 @@ def wait_for_service() -> None:
                 return
         except Exception:
             pass
-
         time.sleep(2)
-
     raise RuntimeError("API did not become ready in time.")
 
 
-# -----------------------------------------------------------------------------
-# STEP 2: FETCH TASKS
-# -----------------------------------------------------------------------------
-
-
 def fetch_tasks() -> list[dict[str, Any]]:
-    """GET /tasks → { \"tasks\": [ { \"task_id\": \"easy\", ... }, ... ] }"""
-    logger.info("Fetching tasks...")
-
-    response = request_with_retries("GET", f"{BASE_URL}/tasks")
+    response = request_with_retries("GET", f"{OPENENV_BASE_URL}/tasks")
     data = response.json()
-
     tasks = data.get("tasks", [])
     logger.info("Found %s tasks.", len(tasks))
-
     return tasks
 
 
-# -----------------------------------------------------------------------------
-# STEP 3: RUN BASELINE PER TASK
-# -----------------------------------------------------------------------------
+def _fallback_action() -> dict[str, Any]:
+    return {
+        "tasks": [
+            {
+                "zone_id": 0,
+                "action_type": "wait",
+                "input_type": None,
+                "amount": 0.0,
+                "duration_hours": 0.0,
+                "cost": 0.0,
+            }
+        ]
+    }
 
 
-def run_task(task_id: str) -> dict[str, Any]:
-    """
-    POST /baseline with {\"task_id\": ..., \"seed\": 42}.
-
-    API returns {\"results\": [ { ... run_task output ... } ]}.
-    """
-    logger.info("Running baseline for task: %s", task_id)
-
+def _extract_action_from_llm(message: Any) -> dict[str, Any]:
+    if not getattr(message, "tool_calls", None):
+        return _fallback_action()
     try:
-        response = request_with_retries(
-            "POST",
-            f"{BASE_URL}/baseline",
-            json={"task_id": task_id, "seed": 42},
+        raw = message.tool_calls[0].function.arguments or "{}"
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict) and isinstance(parsed.get("tasks"), list):
+            return parsed
+    except Exception:
+        pass
+    return _fallback_action()
+
+
+def choose_action(task_id: str, observation: dict[str, Any], step_num: int, last_reward: float) -> dict[str, Any]:
+    assert OPENAI_CLIENT is not None
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "submit_action",
+                "description": "Return next /step action payload.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "tasks": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "zone_id": {"type": "integer"},
+                                    "action_type": {
+                                        "type": "string",
+                                        "enum": ["take_reading", "apply_input", "irrigate", "wait"],
+                                    },
+                                    "input_type": {"type": ["string", "null"]},
+                                    "amount": {"type": "number"},
+                                    "duration_hours": {"type": "number"},
+                                    "cost": {"type": "number"},
+                                },
+                                "required": [
+                                    "zone_id",
+                                    "action_type",
+                                    "input_type",
+                                    "amount",
+                                    "duration_hours",
+                                    "cost",
+                                ],
+                            },
+                        }
+                    },
+                    "required": ["tasks"],
+                },
+            },
+        }
+    ]
+    payload = {
+        "task_id": task_id,
+        "step": step_num,
+        "last_reward": last_reward,
+        "observation": observation,
+    }
+    response = OPENAI_CLIENT.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(payload)},
+        ],
+        tools=tools,
+        tool_choice="required",
+        max_completion_tokens=MAX_COMPLETION_TOKENS,
+    )
+    return _extract_action_from_llm(response.choices[0].message)
+
+
+def _safe_average(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.5
+
+
+def build_episode_summary(
+    task: dict[str, Any],
+    final_observation: dict[str, Any],
+    days_elapsed: int,
+    total_reward: float,
+    overuse_penalty_total: float,
+    total_actions: int,
+    waste_actions: int,
+) -> dict[str, Any]:
+    zones = final_observation.get("zones", [])
+    health_values = [z.get("crop_health") for z in zones if isinstance(z.get("crop_health"), (int, float))]
+
+    degradation_values: list[float] = []
+    for zone in zones:
+        metrics = zone.get("observed_metrics", {})
+        if not isinstance(metrics, dict):
+            continue
+        for key, value in metrics.items():
+            if "degrad" in str(key).lower() and isinstance(value, (int, float)):
+                degradation_values.append(float(value))
+
+    remaining_budget = float(final_observation.get("remaining_budget", 0.0))
+    initial_budget = float(task.get("initial_budget", max(remaining_budget, 1.0)))
+    max_days = int(task.get("max_days", max(days_elapsed, 1)))
+
+    return {
+        "task_id": str(task.get("task_id", "unknown")),
+        "max_days": max_days,
+        "initial_budget": initial_budget,
+        "remaining_budget": remaining_budget,
+        "days_elapsed": max(days_elapsed, 1),
+        "total_reward": float(total_reward),
+        "overuse_penalty_total": float(overuse_penalty_total),
+        "total_actions": int(max(total_actions, 1)),
+        "waste_actions": int(max(waste_actions, 0)),
+        "final_avg_degradation": float(min(max(_safe_average(degradation_values), 0.0), 1.0)),
+        "final_avg_crop_health": float(min(max(_safe_average(health_values), 0.0), 1.0)),
+    }
+
+
+def grade_episode(task_id: str, episode_summary: dict[str, Any]) -> dict[str, Any]:
+    response = request_with_retries(
+        "POST",
+        f"{OPENENV_BASE_URL}/grader",
+        json={"task_id": task_id, "episode_summary": episode_summary},
+    )
+    return response.json()
+
+
+def run_task(task: dict[str, Any]) -> dict[str, Any]:
+    task_id = str(task.get("task_id", "unknown"))
+    print(f"[START] task={task_id}", flush=True)
+
+    reset_resp = request_with_retries(
+        "POST",
+        f"{OPENENV_BASE_URL}/reset",
+        params={"task_id": task_id, "seed": SEED},
+    ).json()
+
+    observation = reset_resp.get("observation", {})
+    done = False
+    step_count = 0
+    total_reward = 0.0
+    last_reward = 0.0
+    overuse_penalty_total = 0.0
+    total_actions = 0
+    waste_actions = 0
+
+    while not done and step_count < MAX_STEPS:
+        step_count += 1
+        action = choose_action(task_id, observation, step_count, last_reward)
+        task_actions = action.get("tasks", [])
+
+        total_actions += len(task_actions)
+        waste_actions += sum(
+            1
+            for t in task_actions
+            if str(t.get("action_type", "")).lower() in {"irrigate", "apply_input"}
+            and float(t.get("amount", 0.0)) <= 0.0
         )
-        result = response.json()
 
-        return {
-            "task_id": task_id,
-            "status": "success",
-            "result": result,
-        }
+        step_resp = request_with_retries(
+            "POST",
+            f"{OPENENV_BASE_URL}/step",
+            json={"tasks": task_actions},
+        ).json()
 
-    except Exception as e:
-        logger.error("Task %s failed: %s", task_id, e)
+        observation = step_resp.get("observation", {})
+        reward = float(step_resp.get("reward", 0.0))
+        done = bool(step_resp.get("done", False))
+        info = step_resp.get("info", {})
 
-        return {
-            "task_id": task_id,
-            "status": "failed",
-            "error": str(e),
-        }
+        if isinstance(info, dict):
+            overuse_penalty_total += float(info.get("overuse_penalty_applied", 0.0))
 
+        total_reward += reward
+        last_reward = reward
+        print(f"[STEP] step={step_count} reward={reward}", flush=True)
 
-# -----------------------------------------------------------------------------
-# STEP 4: RUN ALL TASKS
-# -----------------------------------------------------------------------------
+    episode_summary = build_episode_summary(
+        task=task,
+        final_observation=observation,
+        days_elapsed=step_count,
+        total_reward=total_reward,
+        overuse_penalty_total=overuse_penalty_total,
+        total_actions=total_actions,
+        waste_actions=waste_actions,
+    )
+    grade = grade_episode(task_id, episode_summary)
+    score = float(grade.get("score", 0.0))
+    print(f"[END] task={task_id} score={score} steps={step_count}", flush=True)
+
+    return {
+        "task_id": task_id,
+        "steps": step_count,
+        "score": score,
+        "grade": grade,
+        "episode_summary": episode_summary,
+    }
 
 
 def run_all_tasks() -> dict[str, Any]:
-    """
-    Orchestration: wait → list tasks → baseline each task_id.
-    """
     wait_for_service()
-
     tasks = fetch_tasks()
-
     results: list[dict[str, Any]] = []
-
     for task in tasks:
         task_id = task.get("task_id")
-
         if not task_id:
             logger.warning("Skipping malformed task: %s", task)
             continue
-
-        result = run_task(str(task_id))
-        results.append(result)
+        results.append(run_task(task))
 
     return {
-        "base_url": BASE_URL,
+        "base_url": OPENENV_BASE_URL,
         "total_tasks": len(results),
         "results": results,
     }
 
 
-# -----------------------------------------------------------------------------
-# ENTRY POINT
-# -----------------------------------------------------------------------------
-
-
 if __name__ == "__main__":
-    logger.info("Starting inference pipeline...")
+    logger.info("Starting LLM agent inference...")
+    logger.info("API_BASE_URL=%s", API_BASE_URL)
+    logger.info("MODEL_NAME=%s", MODEL_NAME)
+    logger.info("HF_TOKEN set=%s", bool(HF_TOKEN))
+    logger.info("LOCAL_IMAGE_NAME=%s", LOCAL_IMAGE_NAME or "")
+    if not HF_TOKEN:
+        raise SystemExit("HF_TOKEN is required for LLM agent mode.")
+
+    OPENAI_CLIENT = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+    logger.info("OpenAI client initialized=%s", OPENAI_CLIENT is not None)
 
     try:
         final_output = run_all_tasks()
-
-        logger.info("Inference completed successfully.")
-
-        # STRUCTURED OUTPUT STARTS HERE
-        results = final_output.get("results", [])
-
-        for task_result in results:
-            task_id = task_result.get("task_id", "unknown")
-
-            print(f"[START] task={task_id}", flush=True)
-
-            if task_result.get("status") == "success":
-                # Extract actual metrics safely
-                result_data = task_result.get("result", {})
-                runs = result_data.get("results", [])
-
-                steps = 0
-                score = 0
-
-                if runs:
-                    run = runs[0]
-                    steps = run.get("steps", 0)
-                    score = run.get("score", 0)
-
-                    # Optional: simulate steps (since API doesn't expose step-by-step)
-                    for i in range(1, steps + 1):
-                        print(f"[STEP] step={i} reward=0.0", flush=True)
-
-                print(
-                    f"[END] task={task_id} score={score} steps={steps}",
-                    flush=True,
-                )
-
-            else:
-                print(f"[STEP] step=0 reward=0.0", flush=True)
-                print(
-                    f"[END] task={task_id} score=0 steps=0",
-                    flush=True,
-                )
-
-    except Exception as e:
-        logger.critical("Inference failed completely: %s", e)
+        logger.info("Completed %s tasks.", final_output.get("total_tasks", 0))
+    except Exception as exc:
+        logger.critical("Inference failed completely: %s", exc)
         raise
